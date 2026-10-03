@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d6b63">
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png">
+<title>My Planner</title>
+<style>
+:root{--bg:#f2f5f3;--card:#fff;--ink:#15221f;--mute:#62736f;--line:#dbe4e0;--brand:#1d6b63;--bi:#fff;--sun:#f2b134}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1a18;--card:#18262a;--ink:#e8f1ee;--mute:#92a8a2;--line:#27393a;--brand:#3fb5a6;--bi:#06201d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,sans-serif;padding:env(safe-area-inset-top) 0 90px}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:26px;margin:4px 0 2px}h2{font-size:18px;margin:18px 0 6px}
+.mute{color:var(--mute);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0;border-left-width:5px}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin:4px 0}
+textarea{min-height:80px}
+.btn{background:var(--brand);color:var(--bi);border:0;border-radius:10px;padding:10px 14px;font-weight:600}
+.btn.alt{background:none;color:var(--brand);border:1px solid var(--brand)}
+.x{background:none;border:0;color:var(--mute);font-size:20px;padding:4px 8px}
+.row{display:flex;align-items:center;gap:10px}.grow{flex:1;min-width:0}
+.hero{background:var(--brand);color:var(--bi);border-radius:18px;padding:16px;display:flex;gap:14px;align-items:center}
+.ring{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ring i{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:var(--card);color:var(--ink);font:800 20px system-ui}
+.big{font-size:32px;font-weight:800;line-height:1}
+.days{display:flex;gap:6px;margin:12px 0}
+.d{flex:1;text-align:center;padding:6px 0;border-radius:10px;background:var(--card);border:1px solid var(--line);font-size:12px;color:var(--mute)}
+.d b{display:block;font-size:16px;color:var(--ink)}.d.on{background:var(--ink)}.d.on,.d.on b{color:var(--bg)}
+.chk{width:26px;height:26px;border-radius:8px;border:2px solid var(--brand);background:none;flex:none;color:var(--bi);font-weight:800}.chk.on{background:var(--brand)}
+.done .t{text-decoration:line-through;color:var(--mute)}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);margin:2px 4px 0 0}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;border:0;padding:6px 0;font-size:12px;color:var(--mute)}nav button b{display:block;font-size:20px}nav .on{color:var(--brand);font-weight:800}
+.fab{position:fixed;bottom:calc(78px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;border:0;font-size:26px;box-shadow:0 3px 10px #0004}
+#add{right:16px;background:var(--sun);color:#222;font-size:30px}#mic{right:84px;background:var(--brand);color:var(--bi)}
+.sheet{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;z-index:5}.sheet.show{display:flex}
+.sheet>div{background:var(--bg);width:100%;max-width:560px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:92%;overflow:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.chip{padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card)}.chip.on{background:var(--brand);color:var(--bi);border-color:var(--brand)}
+.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--brand)}
+.cols{display:flex;align-items:flex-end;gap:6px;height:90px}.cols div{flex:1;text-align:center;font-size:11px;color:var(--mute)}.cols span{display:block;background:var(--brand);border-radius:6px 6px 0 0}
+#toast{position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));background:var(--ink);color:var(--bg);padding:12px;border-radius:12px;display:none;z-index:9;max-width:536px;margin:0 auto}
+audio{width:100%;margin-top:6px}
+</style></head><body>
+<div id="toast"></div><main id="m"></main>
+<button class="fab" id="mic" onclick="micGo()" aria-label="Speak">🎙️</button><button class="fab" id="add" onclick="openAdd()" aria-label="Add">+</button>
+<nav id="nav"></nav><div class="sheet" id="sh" onclick="if(event.target===this)closeSh()"><div id="shc"></div></div>
+<script>
+var K='dayplanner.v2',S={items:[],done:{},lists:[],notes:[],goals:[]},tab='today',sel=ds(new Date()),fired={},mr=null,ch=[],f={};
+try{var r0=localStorage.getItem(K)||localStorage.getItem('dayplanner.v1');if(r0)S=Object.assign(S,JSON.parse(r0))}catch(e){}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Storage full. Delete old voice notes.')}}
+function z(n){return String(n).padStart(2,'0')}
+function ds(d){return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}
+function pd(s){var a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2])}
+function uid(){return Math.random().toString(36).slice(2,9)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function toast(t){var e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){e.style.display='none'},5000)}
+var DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],CATS=['Meal','Workout','Work','Break','Reflection','Medicine'],CC={Meal:'#e08a2c',Workout:'#c4452f',Work:'#1d6b63',Break:'#7a8fd1',Reflection:'#9a6bb5',Medicine:'#2e9b5f'};
+function on(i,s){return i.d1?(s>=i.d1&&s<=(i.d2||i.d1)):i.days.indexOf(pd(s).getDay())>-1}
+function itemsFor(s){return S.items.filter(function(i){return on(i,s)}).sort(function(a,b){return (a.t1||'99').localeCompare(b.t1||'99')})}
+function stat(s){var l=itemsFor(s),d=S.done[s]||{},n=l.filter(function(i){return d[i.id]}).length;return{n:n,t:l.length,p:l.length?Math.round(n/l.length*100):0}}
+function streak(){var c=0,d=new Date();for(var k=0;k<400;k++){var s=stat(ds(d));if(s.t&&s.p>=70)c++;else if(k>0)break;d.setDate(d.getDate()-1)}return c}
+function setTab(t){tab=t;render()}
+function render(){var T=[['today','🗓️','Today'],['week','📅','Week'],['lists','🛒','Lists'],['notes','📝','Notes'],['goals','🎯','Goals']];
+document.getElementById('nav').innerHTML=T.map(function(x){return '<button class="'+(tab===x[0]?'on':'')+'" onclick="setTab(\''+x[0]+'\')"><b>'+x[1]+'</b>'+x[2]+'</button>'}).join('');
+document.getElementById('m').innerHTML=({today:vToday,week:vWeek,lists:vLists,notes:vNotes,goals:vGoals})[tab]()}
+function row(i,s,d){var c=CC[i.cat]||'#888';return '<div class="card row '+(d[i.id]?'done':'')+'" style="border-left-color:'+c+'"><button class="chk '+(d[i.id]?'on':'')+'" onclick="tog(\''+s+'\',\''+i.id+'\')">'+(d[i.id]?'✓':'')+'</button><div class="grow"><div class="t">'+esc(i.title)+'</div><span class="tag">'+i.cat+'</span>'+(i.t1?'<span class="tag">⏰ '+i.t1+(i.t2?'–'+i.t2:'')+'</span>':'')+(i.rm?'<span class="tag">🔔 '+i.rm+' min before</span>':'')+(i.d2&&i.d2!==i.d1&&i.d2===s?'<span class="tag">Deadline today</span>':'')+(i.days.length?'<span class="tag">repeats</span>':'')+'</div><button class="x" onclick="delItem(\''+i.id+'\')">×</button></div>'}
+function vToday(){var s=stat(sel),t=ds(new Date()),mon=new Date();mon.setDate(mon.getDate()-((mon.getDay()+6)%7));var st='';
+for(var k=0;k<7;k++){var d=new Date(mon);d.setDate(mon.getDate()+k);var x=ds(d);st+='<div class="d '+(x===sel?'on':'')+'" onclick="sel=\''+x+'\';render()">'+DN[d.getDay()]+'<b>'+d.getDate()+'</b></div>'}
+var l=itemsFor(sel),d=S.done[sel]||{};
+return '<h1>'+(sel===t?'Daily plan':pd(sel).toDateString().slice(0,10))+'</h1><div class="mute">'+s.n+' of '+s.t+' done</div><div class="days">'+st+'</div><div class="hero"><div class="ring" style="background:conic-gradient(var(--sun) '+s.p*3.6+'deg,#ffffff40 0)"><i>'+s.p+'%</i></div><div><div class="big">🔥 '+streak()+'</div>day streak<div style="opacity:.8;font-size:13px">A day counts at 70% done</div></div></div>'+
+(l.length?l.map(function(i){return row(i,sel,d)}).join(''):'<div class="card mute">Nothing planned. Tap 🎙️ and say your plan, or tap +.</div>')+
+'<button class="btn alt" style="width:100%;margin-top:8px" onclick="icsExport(S.items)">⏰ Send all alarms to phone Calendar</button>'}
+function vWeek(){var mon=new Date(),h='<h1>Weekly plan</h1><div class="mute">Tap a day to open it.</div>';mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
+for(var k=0;k<7;k++){var d=new Date(mon);d.setDate(mon.getDate()+k);var x=ds(d),l=itemsFor(x),dn=S.done[x]||{};h+='<h2 onclick="sel=\''+x+'\';setTab(\'today\')">'+DN[d.getDay()]+' '+d.getDate()+(x===ds(new Date())?' · today':'')+'</h2>'+(l.length?l.map(function(i){return '<div class="card '+(dn[i.id]?'done':'')+'" style="border-left-color:'+CC[i.cat]+';padding:8px 12px"><span class="t">'+esc(i.title)+'</span><div class="mute">'+i.cat+(i.t1?' · '+i.t1+(i.t2?'–'+i.t2:''):'')+'</div></div>'}).join(''):'<div class="mute">Free</div>')}
+return h}
+function tog(s,id){var d=S.done[s]=S.done[s]||{};d[id]=!d[id];save();render()}
+function delItem(id){if(!confirm('Delete this plan? Repeating plans are removed from every day. Remove its alarms from Calendar too.'))return;S.items=S.items.filter(function(i){return i.id!==id});save();render()}
+function vLists(){return '<h1>Lists</h1><div class="mute">Tap 🎙️ and say: "buy milk, eggs, rice".</div>'+(S.lists.length?S.lists.map(function(L){var n=L.items.filter(function(i){return i.d}).length;return '<div class="card"><div class="row"><b class="grow">'+esc(L.name)+'</b><span class="mute">'+n+'/'+L.items.length+'</span><button class="x" onclick="delList(\''+L.id+'\')">×</button></div>'+L.items.map(function(i,ix){return '<div class="row '+(i.d?'done':'')+'" style="padding:6px 0"><button class="chk '+(i.d?'on':'')+'" onclick="togLi(\''+L.id+'\','+ix+')">'+(i.d?'✓':'')+'</button><span class="grow t">'+esc(i.t)+'</span></div>'}).join('')+'<div class="row"><input id="li'+L.id+'" placeholder="Add item" onkeydown="if(event.key===\'Enter\')addLi(\''+L.id+'\')"><button class="btn" onclick="addLi(\''+L.id+'\')">Add</button></div>'+(n?'<button class="btn alt" onclick="clrLi(\''+L.id+'\')">Clear ticked items</button>':'')+'</div>'}).join(''):'<div class="card mute">No lists yet.</div>')}
+function fl(id){return S.lists.filter(function(l){return l.id===id})[0]}
+function togLi(id,i){var L=fl(id);L.items[i].d=!L.items[i].d;save();render()}
+function addLi(id){var v=document.getElementById('li'+id).value.trim();if(!v)return;fl(id).items.push({t:v,d:false});save();render()}
+function clrLi(id){var L=fl(id);L.items=L.items.filter(function(i){return !i.d});save();render()}
+function delList(id){if(confirm('Delete this list?')){S.lists=S.lists.filter(function(l){return l.id!==id});save();render()}}
+function vNotes(){return '<h1>Notes</h1><div class="row"><button class="btn alt" id="recb" onclick="rec()">⏺ Record voice note</button></div><div class="mute" style="margin-top:6px">Tap 🎙️ to turn speech into a typed note.</div>'+(S.notes.length?S.notes.map(function(n){return '<div class="card"><div class="row"><b class="grow">'+esc(n.title)+'</b><button class="x" onclick="delNote(\''+n.id+'\')">×</button></div><div class="mute">'+new Date(n.t).toLocaleString([],{dateStyle:'medium',timeStyle:'short'})+'</div>'+(n.body?'<div style="white-space:pre-wrap">'+esc(n.body)+'</div>':'')+(n.audio?'<audio controls src="'+n.audio+'"></audio>':'')+'</div>'}).join(''):'<div class="card mute">No notes yet.</div>')}
+function delNote(id){if(confirm('Delete this note?')){S.notes=S.notes.filter(function(n){return n.id!==id});save();render()}}
+function rec(){if(mr&&mr.state==='recording'){mr.stop();return}
+if(!navigator.mediaDevices||!window.MediaRecorder){toast('Voice recording is not available here.');return}
+navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){mr=new MediaRecorder(st);ch=[];mr.ondataavailable=function(e){ch.push(e.data)};
+mr.onstop=function(){st.getTracks().forEach(function(t){t.stop()});var fr=new FileReader();fr.onload=function(){S.notes.unshift({id:uid(),title:(prompt('Name this voice note:','Voice note')||'Voice note').trim(),body:'',audio:fr.result,t:Date.now()});save();render()};fr.readAsDataURL(new Blob(ch,{type:mr.mimeType}))};
+mr.start();document.getElementById('recb').textContent='⏹ Stop recording';setTimeout(function(){mr&&mr.state==='recording'&&mr.stop()},90000)}).catch(function(){toast('Microphone blocked. Allow it in Chrome site settings.')})}
+function listen(cb){var R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R){toast('Voice typing is not supported in this browser. Use Chrome.');return}
+var r=new R();r.lang='en-IN';r.onresult=function(e){cb(e.results[0][0].transcript)};r.onerror=function(){toast('Could not hear you. Try again.')};r.start();toast('Listening… speak now')}
+var MN='january|february|march|april|may|june|july|august|september|october|november|december',WD=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+function h24(h,m,ap){h=+h;if(ap==='pm'&&h<12)h+=12;if(ap==='am'&&h===12)h=0;return z(h)+':'+(m||'00')}
+function mkd(day,mon){var n=new Date(),y=n.getFullYear(),d=new Date(y,mon,day);if(d<new Date(y,n.getMonth(),n.getDate()-30))d=new Date(y+1,mon,day);return ds(d)}
+function parsePlan(txt){var s=txt.toLowerCase(),p={kind:'task',days:[],cat:'Work',rm:5,d1:'',d2:''},m,tm=[];
+[['Meal',/meal|breakfast|lunch|dinner/],['Workout',/workout|gym|exercise|yoga/],['Break',/break|rest/],['Reflection',/reflect|assessment|journal/],['Medicine',/medicine|tablet|pill/]].some(function(c){if(c[1].test(s)){p.cat=c[0];return true}});
+var re=/(\d{1,2})(?::(\d{2}))?\s*(a|p)\.?\s?m\.?/g;while((m=re.exec(s)))tm.push(h24(m[1],m[2],m[3]+'m'));p.tm=tm[0]||'';p.tm2=tm[1]||'';
+if((m=/(\d+)\s*minutes?\s*before/.exec(s)))p.rm=+m[1];
+var rg=new RegExp('(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|-|till|until|and)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s*)?('+MN+')'),sg=new RegExp('(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s*)?('+MN+')');
+if((m=rg.exec(s))){var mo=MN.split('|').indexOf(m[3]);p.d1=mkd(+m[1],mo);p.d2=mkd(+m[2],mo)}else if((m=sg.exec(s))){p.d1=p.d2=mkd(+m[1],MN.split('|').indexOf(m[2]))}
+else if(/tomorrow/.test(s)){var t=new Date();t.setDate(t.getDate()+1);p.d1=p.d2=ds(t)}
+else if(/every ?day|daily/.test(s))p.days=[0,1,2,3,4,5,6];else if(/weekdays/.test(s))p.days=[1,2,3,4,5];else if(/weekend/.test(s))p.days=[0,6];
+else WD.forEach(function(w,i){if(new RegExp('\\b'+w).test(s))p.days.push(i)});
+if(!p.d1&&!p.days.length)p.d1=p.d2=sel;
+var t2=txt.replace(re,'').replace(rg,'').replace(sg,'').replace(/\d+\s*minutes?\s*before/gi,'').replace(/\b(please|add|a|an|the|in|timetable|plan|from|at|on|to|and|every ?day|daily|tomorrow|remind me|before|so|i|will|start|it|for)\b/gi,' ').replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();
+p.t=t2?t2.charAt(0).toUpperCase()+t2.slice(1):p.cat+' plan';return p}
+function parseList(t){return t.replace(/^(please )?(add|buy|get|i want to buy|i need to buy)\s+/i,'').split(/,|\band\b|\bthen\b/i).map(function(x){return x.replace(/^\s*\d+[.)]?\s*/,'').trim()}).filter(Boolean)}
+function micGo(){listen(function(t){
+if(tab==='lists'){var it=parseList(t),L=S.lists[0];if(!L){L={id:uid(),name:'Shopping list',items:[]};S.lists.push(L)}it.forEach(function(x){L.items.push({t:x.charAt(0).toUpperCase()+x.slice(1),d:false})});save();render();toast('Added '+it.length+' items to '+L.name)}
+else if(tab==='notes'){S.notes.unshift({id:uid(),title:t.slice(0,30),body:t,t:Date.now()});save();render();toast('Note saved')}
+else if(tab==='goals'){f={kind:'goal',gt:'short',t:t};drawAdd();showSh()}
+else{f=parsePlan(t);drawAdd();showSh();toast('Check the details, then Save')}})}
+function vGoals(){function g(ty,h){var a=S.goals.filter(function(x){return x.type===ty});return '<h2>'+h+'</h2>'+(a.length?a.map(function(x){return '<div class="card"><div class="row"><b class="grow">'+esc(x.title)+'</b><button class="x" onclick="delGoal(\''+x.id+'\')">×</button></div>'+(x.due?'<div class="mute">Target: '+x.due+'</div>':'')+'<div class="bar" style="margin:8px 0"><i style="width:'+x.p+'%"></i></div><input type="range" min="0" max="100" step="5" value="'+x.p+'" onchange="setGoal(\''+x.id+'\',this.value)"><div class="mute">'+x.p+'% complete</div></div>'}).join(''):'<div class="card mute">None yet.</div>')}
+var c='',tot=0;for(var k=6;k>=0;k--){var x=new Date();x.setDate(x.getDate()-k);var s=stat(ds(x));tot+=s.p;c+='<div><span style="height:'+Math.max(s.p*.7,3)+'px"></span>'+DN[x.getDay()]+'</div>'}
+return '<h1>Goals & progress</h1><div class="card"><div class="row"><div class="grow"><div class="big">🔥 '+streak()+'</div><div class="mute">day streak</div></div><div class="grow"><div class="big">'+Math.round(tot/7)+'%</div><div class="mute">7-day average</div></div></div><div class="cols" style="margin-top:12px">'+c+'</div></div>'+g('short','Short term')+g('long','Long term')+'<h2>Backup</h2><div class="card"><div class="mute">Data lives on this phone. Copy a backup now and then.</div><div class="row" style="margin-top:8px"><button class="btn alt" onclick="bk()">Copy backup</button><button class="btn alt" onclick="rs()">Restore</button></div></div>'}
+function setGoal(id,v){S.goals.forEach(function(x){if(x.id===id)x.p=+v});save();render()}
+function delGoal(id){if(confirm('Delete this goal?')){S.goals=S.goals.filter(function(x){return x.id!==id});save();render()}}
+function bk(){var t=JSON.stringify(S);try{navigator.clipboard.writeText(t).then(function(){toast('Backup copied. Paste it into WhatsApp or a Drive note.')},function(){prompt('Copy:',t)})}catch(e){prompt('Copy:',t)}}
+function rs(){var t=prompt('Paste backup. This replaces data on this phone.');if(!t)return;try{S=Object.assign({items:[],done:{},lists:[],notes:[],goals:[]},JSON.parse(t));save();render()}catch(e){toast('Backup could not be read.')}}
+function openAdd(){f={kind:tab==='lists'?'list':tab==='notes'?'note':tab==='goals'?'goal':'task',days:[],cat:'Work',rm:5,gt:'short',d1:sel,d2:''};drawAdd();showSh()}
+function showSh(){document.getElementById('sh').classList.add('show')}function closeSh(){document.getElementById('sh').classList.remove('show')}
+function drawAdd(){var h='',KD=[['task','Plan'],['list','List'],['note','Note'],['goal','Goal']],v=function(x){return esc(x||'')};
+h+='<div class="chips">'+KD.map(function(x){return '<span class="chip '+(f.kind===x[0]?'on':'')+'" onclick="keep();f.kind=\''+x[0]+'\';drawAdd()">'+x[1]+'</span>'}).join('')+'</div>';
+if(f.kind==='task'){h+='<input id="a1" placeholder="e.g. Work on Project X" value="'+v(f.t)+'"><div class="chips">'+CATS.map(function(c){return '<span class="chip '+(f.cat===c?'on':'')+'" onclick="keep();f.cat=\''+c+'\';drawAdd()">'+c+'</span>'}).join('')+'</div><div class="row"><div class="grow"><label class="mute">Start</label><input id="a2" type="time" value="'+v(f.tm)+'"></div><div class="grow"><label class="mute">End</label><input id="a3" type="time" value="'+v(f.tm2)+'"></div></div>'+
+'<label class="mute">Repeat every week on (optional)</label><div class="chips">'+[1,2,3,4,5,6,0].map(function(w){return '<span class="chip '+(f.days.indexOf(w)>-1?'on':'')+'" onclick="keep();tgd('+w+')">'+DN[w]+'</span>'}).join('')+'</div>'+
+(f.days.length?'':'<div class="row"><div class="grow"><label class="mute">From date</label><input id="a4" type="date" value="'+v(f.d1)+'"></div><div class="grow"><label class="mute">Deadline / last date</label><input id="a5" type="date" value="'+v(f.d2)+'"></div></div>')+
+'<label class="mute">Alarm before start</label><select id="a6">'+[[0,'No alarm'],[5,'5 minutes'],[10,'10 minutes'],[30,'30 minutes'],[60,'1 hour']].map(function(o){return '<option value="'+o[0]+'" '+(+f.rm===o[0]?'selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
+if(f.kind==='list')h+='<input id="a1" placeholder="List name, e.g. Grocery" value="'+v(f.t)+'">';
+if(f.kind==='note')h+='<input id="a1" placeholder="Title" value="'+v(f.t)+'"><textarea id="nb" placeholder="Write your note">'+v(f.body)+'</textarea>';
+if(f.kind==='goal')h+='<input id="a1" placeholder="What do you want to achieve?" value="'+v(f.t)+'"><div class="chips"><span class="chip '+(f.gt==='short'?'on':'')+'" onclick="keep();f.gt=\'short\';drawAdd()">Short term</span><span class="chip '+(f.gt==='long'?'on':'')+'" onclick="keep();f.gt=\'long\';drawAdd()">Long term</span></div><input id="gd" type="date" value="'+v(f.gdate)+'">';
+document.getElementById('shc').innerHTML=h+'<div class="row" style="margin-top:12px"><button class="btn grow" onclick="doAdd()">Save</button><button class="btn alt" onclick="closeSh()">Cancel</button></div>'}
+function keep(){[['a1','t'],['a2','tm'],['a3','tm2'],['a4','d1'],['a5','d2'],['a6','rm'],['nb','body'],['gd','gdate']].forEach(function(x){var e=document.getElementById(x[0]);if(e)f[x[1]]=e.value})}
+function tgd(w){var i=f.days.indexOf(w);if(i>-1)f.days.splice(i,1);else f.days.push(w);drawAdd()}
+function doAdd(){keep();var t=(f.t||'').trim();if(!t){toast('Please add a title.');return}
+if(f.kind==='task'){var d1=f.days.length?'':(f.d1||sel),it={id:uid(),title:t,cat:f.cat,t1:f.tm||'',t2:f.tm2||'',days:f.days.slice(),d1:d1,d2:d1?(f.d2||d1):'',rm:+f.rm||0};S.items.push(it);save();closeSh();render();
+if(it.rm&&it.t1&&confirm('Add the alarm to your phone Calendar now? This makes it ring even when the app is closed.'))icsExport([it]);return}
+if(f.kind==='list')S.lists.unshift({id:uid(),name:t,items:[]});
+if(f.kind==='note')S.notes.unshift({id:uid(),title:t,body:f.body||'',t:Date.now()});
+if(f.kind==='goal')S.goals.push({id:uid(),title:t,type:f.gt,due:f.gdate||'',p:0});
+save();closeSh();render()}
+function esi(s){return String(s).replace(/[\\;,]/g,function(c){return '\\'+c}).replace(/\n/g,'\\n')}
+function icsExport(list){var td=ds(new Date()),L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//DayPlanner//EN'],st=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z',n=0,CD=['SU','MO','TU','WE','TH','FR','SA'];
+function ev(uid,sum,d,a,b,rr,mins){L.push('BEGIN:VEVENT','UID:'+uid+'@dayplanner','DTSTAMP:'+st,'DTSTART:'+d.replace(/-/g,'')+'T'+a.replace(':','')+'00','DTEND:'+d.replace(/-/g,'')+'T'+b.replace(':','')+'00','SUMMARY:'+esi(sum));if(rr)L.push(rr);L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+esi(sum),'TRIGGER:-PT'+mins+'M','END:VALARM','END:VEVENT');n++}
+list.forEach(function(i){if(!i.t1||!i.rm)return;var d=i.d1,hh=+i.t1.slice(0,2),e=i.t2||z((hh+1)%24)+i.t1.slice(2),rr='';
+if(i.days.length){var x=new Date();while(i.days.indexOf(x.getDay())<0)x.setDate(x.getDate()+1);d=ds(x);rr='RRULE:FREQ=WEEKLY;BYDAY='+i.days.map(function(w){return CD[w]}).join(',')}
+else{if((i.d2||i.d1)<td)return;if(i.d2&&i.d2>i.d1)rr='RRULE:FREQ=DAILY;COUNT='+(Math.round((pd(i.d2)-pd(i.d1))/864e5)+1)}
+ev(i.id,i.cat+': '+i.title,d,i.t1,e<=i.t1?'23:59':e,rr,i.rm);
+if(i.d2&&i.d2>i.d1&&i.d2>=td)ev(i.id+'-dl','DEADLINE TODAY: '+i.title,i.d2,'09:00','09:30','',0)});
+if(!n){toast('No plans with a start time and alarm to send.');return}
+var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([L.join('\r\n')],{type:'text/calendar'}));a.download='planner-alarms.ics';document.body.appendChild(a);a.click();a.remove();toast('Open the file and save it to Calendar. '+n+' alarm event(s).')}
+function notify(t,b){toast('⏰ '+t+(b?' — '+b:''));try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}
+try{if(Notification.permission==='granted'&&navigator.serviceWorker)navigator.serviceWorker.ready.then(function(r){r.showNotification(t,{body:b||'',vibrate:[300,150,600],requireInteraction:true})})}catch(e){}}
+setInterval(function(){var n=new Date(),s=ds(n),hm=z(n.getHours())+':'+z(n.getMinutes()),d=S.done[s]||{};
+itemsFor(s).forEach(function(i){if(!i.rm||!i.t1||d[i.id])return;var a=i.t1.split(':'),m=(+a[0])*60+(+a[1])-i.rm;if(m<0)m+=1440;var k=s+i.id;if(z(Math.floor(m/60))+':'+z(m%60)===hm&&!fired[k]){fired[k]=1;notify(i.title,'Starts at '+i.t1+(i.d2===s&&i.d1!==i.d2?' · deadline today':''))}})},15000);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+try{if(window.Notification&&Notification.permission==='default')document.addEventListener('click',function(){Notification.requestPermission()},{once:true})}catch(e){}
+render();
+</script></body></html>
